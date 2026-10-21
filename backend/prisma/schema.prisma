@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EmailStatus {
+  SCHEDULED
+  SENDING
+  SENT
+  FAILED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  googleId  String   @unique
+  email     String   @unique
+  name      String
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaigns Campaign[]
+  emails    Email[]
+  slack     SlackConnection?
+}
+
+model SlackConnection {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  teamId      String
+  teamName    String?
+  channel     String?
+  channelId   String?
+  webhookUrl  String
+  accessToken String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Ethereal SMTP accounts used to send mail. Persisted so a restart reuses
+// the same inboxes instead of creating new ones every boot.
+model Sender {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  host      String
+  port      Int
+  secure    Boolean  @default(false)
+  name      String
+  createdAt DateTime @default(now())
+
+  emails Email[]
+}
+
+// One "compose" submission. Holds the per-batch delay and hourly limit.
+model Campaign {
+  id          String   @id @default(cuid())
+  userId      String
+  subject     String
+  body        String
+  startAt     DateTime
+  delayMs     Int
+  hourlyLimit Int
+  total       Int
+  createdAt   DateTime @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emails Email[]
+
+  @@index([userId])
+}
+
+model Email {
+  id          String      @id @default(cuid())
+  campaignId  String
+  userId      String
+  senderId    String
+  toEmail     String
+  subject     String
+  body        String
+  sequence    Int
+  scheduledAt DateTime
+  status      EmailStatus @default(SCHEDULED)
+  attempts    Int         @default(0)
+  sentAt      DateTime?
+  messageId   String?
+  previewUrl  String?
+  error       String?
+  // true once the job got pushed to a later hour because of the hourly limit
+  rateLimited Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sender   Sender   @relation(fields: [senderId], references: [id])
+
+  @@unique([campaignId, toEmail])
+  @@index([userId, status, scheduledAt])
+  @@index([status, scheduledAt])
+}

@@ -1,0 +1,49 @@
+{
+  "name": "email-scheduler-backend",
+  "version": "1.0.0",
+  "description": "Email scheduler API + BullMQ worker",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "dev:api": "RUN_WORKER=false tsx watch src/index.ts",
+    "dev:worker": "RUN_API=false tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "start:api": "RUN_WORKER=false node dist/index.js",
+    "start:worker": "RUN_API=false node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:generate": "prisma generate"
+  },
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@bull-board/api": "^9.10.4",
+    "@bull-board/express": "^9.10.4",
+    "@elastic/elasticsearch": "^8.19.2",
+    "@prisma/client": "^6.19.3",
+    "bullmq": "^6.3.19",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.8",
+    "express": "^5.3.0",
+    "google-auth-library": "^11.3.1",
+    "ioredis": "^6.0.0",
+    "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^10.1.7",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^26.6.5",
+    "@types/nodemailer": "^8.0.2",
+    "prisma": "^6.19.3",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  },
+  "private": true
+}
