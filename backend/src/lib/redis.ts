@@ -1,4 +1,5 @@
-import { Redis, type RedisOptions } from 'ioredis';
+import { Redis } from 'ioredis';
+import type { RedisOptions } from 'bullmq';
 import { env } from '../config/env';
 
 // BullMQ wants plain options (it opens its own connections) and requires
