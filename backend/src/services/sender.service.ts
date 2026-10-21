@@ -40,6 +40,8 @@ export async function ensureSenders(): Promise<Sender[]> {
   let senders = await prisma.sender.findMany({ orderBy: { createdAt: 'asc' } });
   const missing = configured.length ? 0 : env.ETHEREAL_SENDER_COUNT - senders.length;
 
+  // nodemailer hands back the same cached account per process unless told not to
+  if (missing > 0) process.env.ETHEREAL_CACHE = 'no';
   for (let i = 0; i < missing; i++) {
     const acc = await nodemailer.createTestAccount();
     log.info(`created ethereal account ${acc.user}`);
