@@ -149,7 +149,7 @@ export function ComposePage() {
           </FormRow>
 
           <div className="flex flex-wrap items-start gap-x-10 gap-y-3 border-b border-gray-100 py-3">
-            <label className="flex items-center gap-3 text-sm text-gray-500">
+            <label className="flex items-center gap-3 text-sm whitespace-nowrap text-gray-500">
               Delay between 2 emails
               <Input
                 type="number"
@@ -162,7 +162,7 @@ export function ComposePage() {
               />
               <span className="text-xs">sec</span>
             </label>
-            <label className="flex items-center gap-3 text-sm text-gray-500">
+            <label className="flex items-center gap-3 text-sm whitespace-nowrap text-gray-500">
               Hourly Limit
               <Input
                 type="number"
