@@ -51,7 +51,8 @@ export async function initSearch() {
   } catch (err) {
     // search is a nice-to-have; scheduling must keep working without it
     available = false;
-    log.warn('elasticsearch not reachable, falling back to db search', err);
+    log.warn('elasticsearch not reachable, falling back to db search (retrying in 15s)', err);
+    setTimeout(() => void initSearch(), 15_000).unref();
   }
 }
 
