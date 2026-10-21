@@ -198,6 +198,26 @@ In general, with N recipients due at once:
 
 ---
 
+## Deployment (free tier)
+
+| Part | Where |
+|---|---|
+| Frontend | Vercel (`frontend/`, `vercel.json` proxies `/api` + `/admin` to Render) |
+| API + worker | Render web service (`render.yaml`) |
+| Postgres | Neon |
+| Redis | Redis Cloud free (persistent; Upstash's per-command billing doesn't suit BullMQ polling) |
+| Elasticsearch | Elastic Cloud trial (optional, search falls back to Postgres without it) |
+
+Every browser request goes through the Vercel domain, so the session cookie is first-party and OAuth callbacks land on the same origin.
+Set `FRONTEND_URL` and `BACKEND_URL` on Render to the **Vercel** URL, and register
+`https://<vercel-app>/api/auth/google/callback` (Google) and `https://<vercel-app>/api/slack/callback` (Slack).
+
+Render's free instances sleep after 15 minutes without traffic, which would pause the worker. An external uptime monitor (UptimeRobot) hits `/health` every 5 minutes to keep it awake. That's just a health check: scheduling is still entirely BullMQ delayed jobs. And even if the instance does sleep, nothing is lost. Jobs stay in Redis and overdue ones go out as soon as it wakes.
+
+The backend can also serve the built frontend itself (`FRONTEND_DIST=../frontend/dist`) for single-service deploys.
+
+---
+
 ## 4. API
 
 All `/api/*` routes except the auth/Slack callbacks need the session cookie (or `Authorization: Bearer <jwt>`).

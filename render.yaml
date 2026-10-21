@@ -1,0 +1,46 @@
+# Render blueprint for the API + worker (frontend lives on Vercel)
+services:
+  - type: web
+    name: email-scheduler-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci --include=dev && npx prisma generate && npm run build
+    startCommand: npx prisma migrate deploy && node dist/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: JWT_SECRET
+        generateValue: true
+      # the Vercel url - every browser request comes through Vercel's /api proxy
+      - key: FRONTEND_URL
+        sync: false
+      - key: BACKEND_URL
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: ELASTICSEARCH_URL
+        sync: false
+      - key: ELASTICSEARCH_API_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: SLACK_CLIENT_ID
+        sync: false
+      - key: SLACK_CLIENT_SECRET
+        sync: false
+      - key: BULL_BOARD_AUTH
+        sync: false
+      - key: WORKER_CONCURRENCY
+        value: "5"
+      - key: MIN_DELAY_BETWEEN_SENDS_MS
+        value: "2000"
+      - key: MAX_EMAILS_PER_HOUR_PER_SENDER
+        value: "200"
