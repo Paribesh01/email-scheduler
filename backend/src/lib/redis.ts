@@ -13,6 +13,8 @@ export function redisOptions(): RedisOptions {
     password: url.password ? decodeURIComponent(url.password) : undefined,
     db: url.pathname && url.pathname !== '/' ? Number(url.pathname.slice(1)) : 0,
     tls: url.protocol === 'rediss:' ? {} : undefined,
+    // 0 = resolve both IPv4 and IPv6 (Railway's private network is IPv6 only)
+    family: 0,
     maxRetriesPerRequest: null,
   };
 }

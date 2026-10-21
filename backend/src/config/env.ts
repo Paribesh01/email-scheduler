@@ -17,6 +17,8 @@ const schema = z.object({
   REDIS_URL: z.string().default('redis://localhost:6379'),
   ELASTICSEARCH_URL: z.string().default('http://localhost:9200'),
   ELASTICSEARCH_INDEX: z.string().default('emails'),
+  // Elastic Cloud style auth; for Bonsai just put user:pass in the url
+  ELASTICSEARCH_API_KEY: z.string().default(''),
 
   JWT_SECRET: z.string().min(8),
 
@@ -40,6 +42,9 @@ const schema = z.object({
   RUN_WORKER: bool(true),
 
   BULL_BOARD_AUTH: z.string().default(''),
+
+  // built React app to serve from this server (single-service deploys)
+  FRONTEND_DIST: z.string().default(''),
 });
 
 const parsed = schema.safeParse(process.env);

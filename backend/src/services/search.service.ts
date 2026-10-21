@@ -6,7 +6,13 @@ import { createLogger } from '../lib/logger';
 const log = createLogger('search');
 const index = env.ELASTICSEARCH_INDEX;
 
-export const es = new Client({ node: env.ELASTICSEARCH_URL, requestTimeout: 5000 });
+const enabled = Boolean(env.ELASTICSEARCH_URL);
+
+export const es = new Client({
+  node: env.ELASTICSEARCH_URL || 'http://localhost:9200',
+  requestTimeout: 5000,
+  ...(env.ELASTICSEARCH_API_KEY ? { auth: { apiKey: env.ELASTICSEARCH_API_KEY } } : {}),
+});
 
 export interface EmailDoc {
   id: string;
@@ -25,6 +31,10 @@ let available = false;
 export const isSearchAvailable = () => available;
 
 export async function initSearch() {
+  if (!enabled) {
+    log.info('ELASTICSEARCH_URL not set, search uses the database');
+    return;
+  }
   try {
     const exists = await es.indices.exists({ index });
     if (!exists) {

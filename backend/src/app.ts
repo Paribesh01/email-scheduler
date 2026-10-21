@@ -1,4 +1,6 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
+import fs from 'node:fs';
+import path from 'node:path';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { createBullBoard } from '@bull-board/api';
@@ -52,6 +54,14 @@ export function createApp() {
       workerConcurrency: env.WORKER_CONCURRENCY,
     });
   });
+
+  // in production the same server hands out the React build, so the session
+  // cookie is first-party and there's no CORS to deal with
+  const dist = env.FRONTEND_DIST && path.resolve(env.FRONTEND_DIST);
+  if (dist && fs.existsSync(path.join(dist, 'index.html'))) {
+    app.use(express.static(dist, { index: false, maxAge: '1h' }));
+    app.get(/^\/(?!api\/|admin\/).*/, (_req, res) => res.sendFile(path.join(dist, 'index.html')));
+  }
 
   app.use(notFoundHandler);
   app.use(errorHandler);
