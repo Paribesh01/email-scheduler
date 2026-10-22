@@ -7,6 +7,7 @@ import { scheduleCampaign } from '../services/schedule.service';
 import { isSearchAvailable, searchEmails } from '../services/search.service';
 import { createLogger } from '../lib/logger';
 import { badRequest, notFound } from '../utils/errors';
+import { attachmentInputSchema, decodeAttachments } from '../services/attachment.service';
 
 const log = createLogger('emails');
 
@@ -23,6 +24,7 @@ const scheduleSchema = z.object({
   delayMs: z.coerce.number().int().min(0).max(24 * 3600 * 1000),
   hourlyLimit: z.coerce.number().int().min(1).max(100000),
   senderId: z.string().min(1).optional(),
+  attachments: z.array(attachmentInputSchema).max(5).default([]),
 });
 
 emailRouter.post('/schedule', async (req, res) => {
@@ -33,7 +35,14 @@ emailRouter.post('/schedule', async (req, res) => {
     throw badRequest('Unknown sender');
   }
 
-  const { campaign, count } = await scheduleCampaign(req.user!.id, input);
+  let attachments;
+  try {
+    attachments = decodeAttachments(input.attachments);
+  } catch (err) {
+    throw badRequest((err as Error).message);
+  }
+
+  const { campaign, count } = await scheduleCampaign(req.user!.id, { ...input, attachments });
   res.status(201).json({ campaignId: campaign.id, scheduled: count, startAt: campaign.startAt });
 });
 
@@ -126,8 +135,37 @@ emailRouter.get('/stats', async (req, res) => {
 emailRouter.get('/:id', async (req, res) => {
   const email = await prisma.email.findFirst({
     where: { id: req.params.id, userId: req.user!.id },
-    select: { ...emailSelect, attempts: true, messageId: true, createdAt: true },
+    select: {
+      ...emailSelect,
+      attempts: true,
+      messageId: true,
+      createdAt: true,
+      campaign: { select: { attachments: { select: { id: true, filename: true, contentType: true, size: true } } } },
+    },
   });
   if (!email) throw notFound('Email not found');
-  res.json({ email });
+  const { campaign, ...rest } = email;
+  res.json({ email: { ...rest, attachments: campaign.attachments } });
+});
+
+emailRouter.get('/:id/attachments/:attachmentId', async (req, res) => {
+  const att = await prisma.attachment.findFirst({
+    where: {
+      id: req.params.attachmentId,
+      campaign: { userId: req.user!.id, emails: { some: { id: req.params.id } } },
+    },
+  });
+  if (!att) throw notFound('Attachment not found');
+
+  const inline = /^image\/(png|jpe?g|gif|webp)$|^application\/pdf$/.test(att.contentType);
+  res.set({
+    'Content-Type': att.contentType,
+    'Content-Length': String(att.size),
+    'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename="${encodeURIComponent(att.filename)}"`,
+    'Cache-Control': 'private, max-age=3600',
+    // svg could carry scripts - never let it render as a page
+    'X-Content-Type-Options': 'nosniff',
+    ...(att.contentType === 'image/svg+xml' ? { 'Content-Security-Policy': "default-src 'none'" } : {}),
+  });
+  res.send(Buffer.from(att.data));
 });

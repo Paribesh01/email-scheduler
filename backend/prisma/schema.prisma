@@ -72,10 +72,27 @@ model Campaign {
   total       Int
   createdAt   DateTime @default(now())
 
-  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  emails Email[]
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emails      Email[]
+  attachments Attachment[]
 
   @@index([userId])
+}
+
+// files sent with every email of a campaign. Kept in the db so any worker
+// instance can send them later, even after a restart
+model Attachment {
+  id          String   @id @default(cuid())
+  campaignId  String
+  filename    String
+  contentType String
+  size        Int
+  data        Bytes
+  createdAt   DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
 }
 
 model Email {

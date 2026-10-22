@@ -6,6 +6,7 @@ import { createLogger } from '../lib/logger';
 import { EMAIL_QUEUE, type EmailJobData } from '../queue/email.queue';
 import { firstHitInWindow, reserveSendSlot } from '../queue/rate-limiter';
 import { sendEmail } from '../services/mailer.service';
+import { getCampaignAttachments } from '../services/attachment.service';
 import { updateEmailDoc } from '../services/search.service';
 import { notifyRateLimitHit } from '../services/slack.service';
 
@@ -100,7 +101,8 @@ export async function processEmailJob(job: Job<EmailJobData>, token?: string) {
 
   // 3) send
   try {
-    const result = await sendEmail(email, email.sender);
+    const attachments = await getCampaignAttachments(email.campaignId);
+    const result = await sendEmail(email, email.sender, attachments);
     const sentAt = new Date();
     await prisma.email.update({
       where: { id: emailId },

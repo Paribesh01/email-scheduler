@@ -4,6 +4,7 @@ import { createLogger } from '../lib/logger';
 import { emailQueue, jobOptionsFor, type EmailJobData } from '../queue/email.queue';
 import { ensureSenders } from './sender.service';
 import { indexEmails, toDoc } from './search.service';
+import type { DecodedAttachment } from './attachment.service';
 
 const log = createLogger('schedule');
 const ENQUEUE_CHUNK = 500;
@@ -17,6 +18,7 @@ export interface ScheduleInput {
   hourlyLimit: number;
   // pin every email to one sender; omitted = rotate across all of them
   senderId?: string;
+  attachments?: DecodedAttachment[];
 }
 
 function toJob(e: { id: string; userId: string; campaignId: string; senderId: string; sequence: number; scheduledAt: Date }, hourlyLimit: number) {
@@ -66,6 +68,11 @@ export async function scheduleCampaign(userId: string, input: ScheduleInput) {
       scheduledAt: new Date(input.startAt.getTime() + i * input.delayMs),
     }));
     await tx.email.createMany({ data: rows });
+    if (input.attachments?.length) {
+      await tx.attachment.createMany({
+        data: input.attachments.map((a) => ({ campaignId: c.id, ...a, data: new Uint8Array(a.data) })),
+      });
+    }
     return c;
   });
 

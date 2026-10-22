@@ -27,7 +27,8 @@ export function createApp() {
 
   app.set('trust proxy', 1);
   app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
-  app.use(express.json({ limit: '5mb' }));
+  // attachments come in as base64 (up to 10 MB of files, ~14 MB encoded)
+  app.use(express.json({ limit: '16mb' }));
   app.use(cookieParser());
 
   // live queue dashboard
