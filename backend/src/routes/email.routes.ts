@@ -6,7 +6,7 @@ import { requireAuth } from '../middleware/auth';
 import { scheduleCampaign } from '../services/schedule.service';
 import { isSearchAvailable, searchEmails } from '../services/search.service';
 import { createLogger } from '../lib/logger';
-import { notFound } from '../utils/errors';
+import { badRequest, notFound } from '../utils/errors';
 
 const log = createLogger('emails');
 
@@ -22,12 +22,16 @@ const scheduleSchema = z.object({
   startAt: z.coerce.date(),
   delayMs: z.coerce.number().int().min(0).max(24 * 3600 * 1000),
   hourlyLimit: z.coerce.number().int().min(1).max(100000),
+  senderId: z.string().min(1).optional(),
 });
 
 emailRouter.post('/schedule', async (req, res) => {
   const input = scheduleSchema.parse(req.body);
   // a start time in the past just means "now"
   if (input.startAt.getTime() < Date.now()) input.startAt = new Date();
+  if (input.senderId && !(await prisma.sender.findUnique({ where: { id: input.senderId } }))) {
+    throw badRequest('Unknown sender');
+  }
 
   const { campaign, count } = await scheduleCampaign(req.user!.id, input);
   res.status(201).json({ campaignId: campaign.id, scheduled: count, startAt: campaign.startAt });
@@ -40,6 +44,9 @@ const TAB_STATUSES: Record<'scheduled' | 'sent', EmailStatus[]> = {
 
 const listSchema = z.object({
   type: z.enum(['scheduled', 'sent']).default('scheduled'),
+  // narrows the tab further, e.g. only FAILED on the sent tab
+  status: z.enum(['SCHEDULED', 'SENDING', 'SENT', 'FAILED']).optional(),
+  rateLimited: z.enum(['true', 'false']).optional(),
   q: z.string().trim().max(200).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
@@ -61,14 +68,14 @@ const emailSelect = {
 } satisfies Prisma.EmailSelect;
 
 emailRouter.get('/', async (req, res) => {
-  const { type, q, page, limit } = listSchema.parse(req.query);
+  const { type, q, page, limit, status, rateLimited } = listSchema.parse(req.query);
   const userId = req.user!.id;
-  const statuses = TAB_STATUSES[type];
+  const statuses = status && TAB_STATUSES[type].includes(status) ? [status] : TAB_STATUSES[type];
   const orderBy: Prisma.EmailOrderByWithRelationInput =
     type === 'scheduled' ? { scheduledAt: 'asc' } : { sentAt: 'desc' };
   const skip = (page - 1) * limit;
 
-  if (q && isSearchAvailable()) {
+  if (q && isSearchAvailable() && !rateLimited) {
     try {
       const { ids, total } = await searchEmails({ userId, q, statuses, from: skip, size: limit });
       const rows = await prisma.email.findMany({ where: { id: { in: ids }, userId }, select: emailSelect });
@@ -84,6 +91,7 @@ emailRouter.get('/', async (req, res) => {
   const where: Prisma.EmailWhereInput = {
     userId,
     status: { in: statuses },
+    ...(rateLimited ? { rateLimited: rateLimited === 'true' } : {}),
     ...(q
       ? {
           OR: [

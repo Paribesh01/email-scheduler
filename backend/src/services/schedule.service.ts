@@ -15,6 +15,8 @@ export interface ScheduleInput {
   startAt: Date;
   delayMs: number;
   hourlyLimit: number;
+  // pin every email to one sender; omitted = rotate across all of them
+  senderId?: string;
 }
 
 function toJob(e: { id: string; userId: string; campaignId: string; senderId: string; sequence: number; scheduledAt: Date }, hourlyLimit: number) {
@@ -35,8 +37,9 @@ function toJob(e: { id: string; userId: string; campaignId: string; senderId: st
  */
 export async function scheduleCampaign(userId: string, input: ScheduleInput) {
   const recipients = [...new Set(input.emails.map((e) => e.trim().toLowerCase()))];
-  const senders = await ensureSenders();
-  if (senders.length === 0) throw new Error('no senders configured');
+  const all = await ensureSenders();
+  const senders = input.senderId ? all.filter((s) => s.id === input.senderId) : all;
+  if (senders.length === 0) throw new Error(input.senderId ? 'unknown sender' : 'no senders configured');
 
   const campaign = await prisma.$transaction(async (tx) => {
     const c = await tx.campaign.create({

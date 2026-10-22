@@ -2,6 +2,7 @@ import { Client } from '@elastic/elasticsearch';
 import type { Email, EmailStatus, Sender } from '@prisma/client';
 import { env } from '../config/env';
 import { createLogger } from '../lib/logger';
+import { htmlToText } from '../utils/html';
 
 const log = createLogger('search');
 const index = env.ELASTICSEARCH_INDEX;
@@ -73,7 +74,7 @@ export function toDoc(email: Email & { sender?: Sender | null }): EmailDoc {
     campaignId: email.campaignId,
     toEmail: email.toEmail,
     subject: email.subject,
-    body: email.body,
+    body: htmlToText(email.body),
     status: email.status,
     senderEmail: email.sender?.email,
     scheduledAt: email.scheduledAt.toISOString(),
