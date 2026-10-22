@@ -31,7 +31,7 @@ export function SendLaterPopover({ open, onClose, onConfirm, submitting }: Props
 
   useEffect(() => {
     if (!open) return
-    setValue(toLocalInputValue(new Date(Date.now() + 5 * 60_000)))
+    setValue(toLocalInputValue(new Date()))
     const onClick = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose()
     }
@@ -47,6 +47,7 @@ export function SendLaterPopover({ open, onClose, onConfirm, submitting }: Props
     <div ref={ref} className="absolute top-full right-0 z-30 mt-2 w-80 rounded-2xl border border-gray-100 bg-white p-4 shadow-xl">
       <h3 className="mb-3 text-sm font-semibold">Send Later</h3>
 
+      <label className="mb-1 block text-xs text-gray-500">Pick date &amp; time</label>
       <input
         type="datetime-local"
         value={value}

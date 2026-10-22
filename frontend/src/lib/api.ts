@@ -1,6 +1,7 @@
 import type {
   ApiErrorBody,
   EmailDetail,
+  EmailFilter,
   EmailItem,
   EmailStats,
   EmailTab,
@@ -46,9 +47,11 @@ export const api = {
     request<{ user: User }>('/api/auth/email', { method: 'POST', body: JSON.stringify({ email, password }) }),
   logout: () => request<{ ok: boolean }>('/api/auth/logout', { method: 'POST' }),
 
-  listEmails: (params: { type: EmailTab; q?: string; page?: number; limit?: number }) => {
+  listEmails: (params: { type: EmailTab; q?: string; page?: number; limit?: number } & EmailFilter) => {
     const qs = new URLSearchParams({ type: params.type, page: String(params.page ?? 1), limit: String(params.limit ?? 20) })
     if (params.q) qs.set('q', params.q)
+    if (params.status) qs.set('status', params.status)
+    if (params.rateLimited !== undefined) qs.set('rateLimited', String(params.rateLimited))
     return request<Paginated<EmailItem>>(`/api/emails?${qs}`)
   },
   getEmail: (id: string) => request<{ email: EmailDetail }>(`/api/emails/${id}`),

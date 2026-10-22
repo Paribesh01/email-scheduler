@@ -1,14 +1,27 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { AlertTriangle } from 'lucide-react'
-import type { EmailTab } from '../../types/api'
+import type { EmailFilter, EmailTab } from '../../types/api'
 import { useEmails } from '../../hooks/useEmails'
 import { useDebounce } from '../../hooks/useDebounce'
 import { Button } from '../ui/Button'
 import { EmptyState } from '../ui/EmptyState'
 import { EmailRow } from './EmailRow'
 import { EmailListSkeleton } from './EmailListSkeleton'
-import { ListToolbar } from './ListToolbar'
+import { ListToolbar, type FilterOption } from './ListToolbar'
 import { Pagination } from './Pagination'
+
+const FILTERS: Record<EmailTab, Array<FilterOption & { value: EmailFilter }>> = {
+  scheduled: [
+    { id: 'all', label: 'All scheduled', value: {} },
+    { id: 'rate', label: 'Rate limited', value: { rateLimited: true } },
+    { id: 'sending', label: 'Sending now', value: { status: 'SENDING' } },
+  ],
+  sent: [
+    { id: 'all', label: 'All', value: {} },
+    { id: 'sent', label: 'Sent', value: { status: 'SENT' } },
+    { id: 'failed', label: 'Failed', value: { status: 'FAILED' } },
+  ],
+}
 
 interface Props {
   type: EmailTab
@@ -19,10 +32,12 @@ interface Props {
 export function EmailList({ type, empty }: Props) {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+  const [filterId, setFilterId] = useState('all')
   const q = useDebounce(search.trim(), 300)
-  const { data, error, loading, refreshing, refetch } = useEmails(type, q, page)
+  const filter = FILTERS[type].find((f) => f.id === filterId)?.value ?? {}
+  const { data, error, loading, refreshing, refetch } = useEmails(type, q, page, filter)
 
-  useEffect(() => setPage(1), [q, type])
+  useEffect(() => setPage(1), [q, type, filterId])
 
   let content: ReactNode
   if (loading && !data) {
@@ -37,8 +52,12 @@ export function EmailList({ type, empty }: Props) {
       />
     )
   } else if (!data || data.items.length === 0) {
-    content = q ? (
-      <EmptyState icon={empty.icon} title="No matches" description={`Nothing found for "${q}".`} />
+    content = q || filterId !== 'all' ? (
+      <EmptyState
+        icon={empty.icon}
+        title="No matches"
+        description={q ? `Nothing found for "${q}".` : 'Nothing matches this filter.'}
+      />
     ) : (
       <EmptyState {...empty} />
     )
@@ -55,7 +74,15 @@ export function EmailList({ type, empty }: Props) {
 
   return (
     <div className="flex h-full flex-col">
-      <ListToolbar search={search} onSearch={setSearch} onRefresh={() => void refetch()} refreshing={refreshing || loading} />
+      <ListToolbar
+        search={search}
+        onSearch={setSearch}
+        onRefresh={() => void refetch()}
+        refreshing={refreshing || loading}
+        filters={FILTERS[type]}
+        filter={filterId}
+        onFilter={setFilterId}
+      />
       <div className="flex-1 overflow-y-auto">{content}</div>
     </div>
   )

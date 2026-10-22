@@ -1,8 +1,10 @@
 import { useNavigate, useParams } from 'react-router-dom'
-import { AlertTriangle, ArrowLeft, ExternalLink, Gauge } from 'lucide-react'
+import DOMPurify from 'dompurify'
+import { AlertTriangle, ArrowLeft, ChevronDown, ExternalLink, Gauge, Star } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
 import { useQuery } from '../hooks/useQuery'
-import { formatFullDate } from '../lib/format'
+import { formatFullDate, formatShortDate, isHtml } from '../lib/format'
 import { Avatar } from '../components/ui/Avatar'
 import { EmptyState } from '../components/ui/EmptyState'
 import { IconButton } from '../components/ui/IconButton'
@@ -12,6 +14,7 @@ import { StatusBadge } from '../components/ui/StatusBadge'
 export function EmailDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { data, error, loading } = useQuery(`email-${id}`, () => api.getEmail(id), { pollMs: 5000 })
   const email = data?.email
 
@@ -23,6 +26,10 @@ export function EmailDetailPage() {
         </IconButton>
         <h1 className="min-w-0 flex-1 truncate text-lg font-semibold">{email?.subject ?? 'Email'}</h1>
         {email && <StatusBadge status={email.status} date={email.scheduledAt} />}
+        <IconButton label="Star">
+          <Star className="h-4 w-4" />
+        </IconButton>
+        {user && <Avatar name={user.name} src={user.avatarUrl} className="h-8 w-8" />}
       </header>
 
       <div className="flex-1 overflow-y-auto">
@@ -40,10 +47,12 @@ export function EmailDetailPage() {
                 <p className="text-sm font-semibold">
                   {email.sender.name} <span className="font-normal text-gray-500">&lt;{email.sender.email}&gt;</span>
                 </p>
-                <p className="text-xs text-gray-500">to {email.toEmail}</p>
+                <p className="flex items-center gap-0.5 text-xs text-gray-500">
+                  to {email.toEmail} <ChevronDown className="h-3 w-3" />
+                </p>
               </div>
               <p className="text-xs whitespace-nowrap text-gray-500">
-                {email.sentAt ? `Sent ${formatFullDate(email.sentAt)}` : `Scheduled ${formatFullDate(email.scheduledAt)}`}
+                {formatShortDate(email.sentAt ?? email.scheduledAt)}
               </p>
             </div>
 
@@ -59,7 +68,14 @@ export function EmailDetailPage() {
               </p>
             )}
 
-            <div className="mt-6 text-sm leading-relaxed whitespace-pre-wrap text-gray-800">{email.body}</div>
+            {isHtml(email.body) ? (
+              <div
+                className="rich-content mt-6 text-sm leading-relaxed text-gray-800"
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(email.body) }}
+              />
+            ) : (
+              <div className="mt-6 text-sm leading-relaxed whitespace-pre-wrap text-gray-800">{email.body}</div>
+            )}
 
             <dl className="mt-10 grid grid-cols-2 gap-4 rounded-xl bg-gray-50 p-4 text-xs sm:grid-cols-4">
               <div>

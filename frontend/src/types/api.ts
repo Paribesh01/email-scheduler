@@ -1,6 +1,11 @@
 export type EmailStatus = 'SCHEDULED' | 'SENDING' | 'SENT' | 'FAILED'
 export type EmailTab = 'scheduled' | 'sent'
 
+export interface EmailFilter {
+  status?: EmailStatus
+  rateLimited?: boolean
+}
+
 export interface User {
   id: string
   email: string
@@ -56,6 +61,7 @@ export interface ScheduleRequest {
   startAt: string
   delayMs: number
   hourlyLimit: number
+  senderId?: string
 }
 
 export interface ScheduleResponse {

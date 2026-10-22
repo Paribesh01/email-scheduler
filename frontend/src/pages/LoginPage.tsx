@@ -62,7 +62,7 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-full items-center justify-center bg-white px-4 py-10">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md rounded-2xl border border-gray-100 px-8 py-10 shadow-sm">
         <h1 className="mb-8 text-center text-3xl font-semibold">Login</h1>
 
         <button
@@ -105,7 +105,7 @@ export function LoginPage() {
           </Button>
         </form>
 
-        <p className="mt-4 text-center text-xs text-gray-400">New here? Entering a new email creates your account.</p>
+        <p className="mt-4 text-center text-xs text-gray-400">New here? A new email creates your account.</p>
       </div>
     </div>
   )

@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent } from 'react'
+import { forwardRef, useImperativeHandle, useRef, useState, type KeyboardEvent } from 'react'
 import { Upload, X } from 'lucide-react'
 import { extractEmails, readLeadsFile } from '../../lib/parseLeads'
 import { useToast } from '../../context/ToastContext'
@@ -12,11 +12,17 @@ interface Props {
 
 const merge = (a: string[], b: string[]) => [...new Set([...a, ...b])]
 
-export function RecipientsField({ emails, onChange }: Props) {
+export interface RecipientsFieldHandle {
+  openFilePicker: () => void
+}
+
+export const RecipientsField = forwardRef<RecipientsFieldHandle, Props>(function RecipientsField({ emails, onChange }, handle) {
   const toast = useToast()
   const fileRef = useRef<HTMLInputElement>(null)
   const [draft, setDraft] = useState('')
   const [fileName, setFileName] = useState<string | null>(null)
+
+  useImperativeHandle(handle, () => ({ openFilePicker: () => fileRef.current?.click() }), [])
 
   const commitDraft = () => {
     const found = extractEmails(draft)
@@ -116,4 +122,4 @@ export function RecipientsField({ emails, onChange }: Props) {
       )}
     </div>
   )
-}
+})
