@@ -2,17 +2,13 @@
 services:
   - type: web
     name: email-scheduler-api
-    runtime: node
+    runtime: docker
     plan: free
-    rootDir: backend
-    buildCommand: npm ci --include=dev && npx prisma generate && npm run build
-    startCommand: npx prisma migrate deploy && node dist/index.js
+    dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
-      - key: NODE_VERSION
-        value: "22"
       - key: JWT_SECRET
         generateValue: true
       # the Vercel url - every browser request comes through Vercel's /api proxy
