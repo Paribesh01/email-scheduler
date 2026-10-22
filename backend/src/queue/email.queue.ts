@@ -17,6 +17,7 @@ export interface EmailJobData {
 
 export const emailQueue = new Queue<EmailJobData>(EMAIL_QUEUE, {
   connection: redisOptions(),
+  prefix: env.QUEUE_PREFIX,
   defaultJobOptions: {
     attempts: env.JOB_ATTEMPTS,
     backoff: { type: 'exponential', delay: 5000 },

@@ -1,4 +1,7 @@
 import { redis } from '../lib/redis';
+import { env } from '../config/env';
+
+const P = `${env.QUEUE_PREFIX}:rl`;
 
 export const HOUR_MS = 60 * 60 * 1000;
 
@@ -13,7 +16,7 @@ export const HOUR_MS = 60 * 60 * 1000;
  *  4. otherwise bump both counters and move the sender's next free slot by `gap`
  *
  * KEYS[1] = sender "next free slot" key
- * ARGV    = now, gap, senderLimit, campaignLimit, senderId, campaignId
+ * ARGV    = now, gap, senderLimit, campaignLimit, senderId, campaignId, keyPrefix
  * returns { slot, count, reason }   reason: 0 ok, 1 sender limit, 2 campaign limit
  */
 const RESERVE_LUA = `
@@ -27,8 +30,8 @@ local nextFree = tonumber(redis.call('GET', KEYS[1]) or '0')
 local slot = math.max(now, nextFree)
 local window = math.floor(slot / hour)
 
-local senderKey = 'rl:sender:' .. ARGV[5] .. ':' .. window
-local campaignKey = 'rl:campaign:' .. ARGV[6] .. ':' .. window
+local senderKey = ARGV[7] .. ':sender:' .. ARGV[5] .. ':' .. window
+local campaignKey = ARGV[7] .. ':campaign:' .. ARGV[6] .. ':' .. window
 
 local sentBySender = tonumber(redis.call('GET', senderKey) or '0')
 if sentBySender >= senderLimit then
@@ -69,13 +72,14 @@ export async function reserveSendSlot(params: {
   const [slot, count, reason] = (await redis.eval(
     RESERVE_LUA,
     1,
-    `rl:next:${params.senderId}`,
+    `${P}:next:${params.senderId}`,
     now,
     params.gapMs,
     params.senderLimit,
     params.campaignLimit,
     params.senderId,
     params.campaignId,
+    P,
   )) as [number, number, number];
 
   if (reason === 0) return { ok: true, slot, count };
@@ -89,6 +93,6 @@ export async function reserveSendSlot(params: {
 
 /** true only for the first caller per key+window, used to notify once per hour */
 export async function firstHitInWindow(key: string, windowStart: number) {
-  const res = await redis.set(`rl:notified:${key}:${windowStart}`, '1', 'PX', HOUR_MS * 2, 'NX');
+  const res = await redis.set(`${P}:notified:${key}:${windowStart}`, '1', 'PX', HOUR_MS * 2, 'NX');
   return res === 'OK';
 }

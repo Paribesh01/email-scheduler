@@ -133,6 +133,7 @@ export async function processEmailJob(job: Job<EmailJobData>, token?: string) {
 export function startEmailWorker() {
   const worker = new Worker<EmailJobData>(EMAIL_QUEUE, processEmailJob, {
     connection: redisOptions(),
+    prefix: env.QUEUE_PREFIX,
     concurrency: env.WORKER_CONCURRENCY,
   });
 

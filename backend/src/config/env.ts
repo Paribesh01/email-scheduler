@@ -15,6 +15,8 @@ const schema = z.object({
 
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().default('redis://localhost:6379'),
+  // namespace for every redis key, lets dev and prod share one redis safely
+  QUEUE_PREFIX: z.string().default('bull'),
   ELASTICSEARCH_URL: z.string().default('http://localhost:9200'),
   ELASTICSEARCH_INDEX: z.string().default('emails'),
   // Elastic Cloud style auth; for Bonsai just put user:pass in the url
