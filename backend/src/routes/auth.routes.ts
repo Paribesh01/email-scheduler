@@ -1,11 +1,14 @@
 import { Router } from 'express';
 import { OAuth2Client } from 'google-auth-library';
 import crypto from 'node:crypto';
+import { z } from 'zod';
 import { env } from '../config/env';
 import { prisma } from '../lib/prisma';
+import { redis } from '../lib/redis';
 import { createLogger } from '../lib/logger';
 import { clearSessionCookie, requireAuth, setSessionCookie, signSession } from '../middleware/auth';
-import { notFound } from '../utils/errors';
+import { HttpError, notFound } from '../utils/errors';
+import { hashPassword, verifyPassword } from '../utils/password';
 
 const log = createLogger('auth');
 const STATE_COOKIE = 'oauth_state';
@@ -44,11 +47,14 @@ authRouter.get('/google/callback', async (req, res) => {
     const p = ticket.getPayload();
     if (!p?.sub || !p.email) return fail('no_profile');
 
-    const user = await prisma.user.upsert({
-      where: { googleId: p.sub },
-      update: { email: p.email, name: p.name ?? p.email, avatarUrl: p.picture },
-      create: { googleId: p.sub, email: p.email, name: p.name ?? p.email, avatarUrl: p.picture },
+    const profile = { email: p.email, name: p.name ?? p.email, avatarUrl: p.picture ?? null };
+    // same email may already exist from an email/password signup - link it
+    const existing = await prisma.user.findFirst({
+      where: { OR: [{ googleId: p.sub }, { email: p.email }] },
     });
+    const user = existing
+      ? await prisma.user.update({ where: { id: existing.id }, data: { ...profile, googleId: p.sub } })
+      : await prisma.user.create({ data: { ...profile, googleId: p.sub } });
 
     setSessionCookie(res, signSession({ id: user.id, email: user.email }));
     res.redirect(`${env.FRONTEND_URL}/dashboard`);
@@ -56,6 +62,47 @@ authRouter.get('/google/callback', async (req, res) => {
     log.error('google callback failed', err);
     fail('google_failed');
   }
+});
+
+const emailLoginSchema = z.object({
+  email: z.email('Enter a valid email').transform((e) => e.toLowerCase()),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(200),
+});
+
+const MAX_LOGIN_ATTEMPTS = 10;
+const LOGIN_WINDOW_SEC = 15 * 60;
+
+/**
+ * Email + password: logs in if the account exists, otherwise signs up
+ * ("or sign up through email" on the login screen).
+ */
+authRouter.post('/email', async (req, res) => {
+  const { email, password } = emailLoginSchema.parse(req.body);
+
+  // basic brute force guard, shared across instances via redis
+  const attemptsKey = `${env.QUEUE_PREFIX}:login-attempts:${email}`;
+  const attempts = await redis.incr(attemptsKey);
+  if (attempts === 1) await redis.expire(attemptsKey, LOGIN_WINDOW_SEC);
+  if (attempts > MAX_LOGIN_ATTEMPTS) throw new HttpError(429, 'Too many attempts, try again in a few minutes');
+
+  let user = await prisma.user.findUnique({ where: { email } });
+  if (user) {
+    if (!user.passwordHash) {
+      throw new HttpError(400, 'This account uses Google sign-in. Please continue with Google.');
+    }
+    if (!(await verifyPassword(password, user.passwordHash))) {
+      throw new HttpError(401, 'Incorrect email or password');
+    }
+  } else {
+    user = await prisma.user.create({
+      data: { email, name: email.split('@')[0], passwordHash: await hashPassword(password) },
+    });
+    log.info(`new email signup ${email}`);
+  }
+
+  await redis.del(attemptsKey);
+  setSessionCookie(res, signSession({ id: user.id, email: user.email }));
+  res.json({ user: { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl } });
 });
 
 authRouter.get('/me', requireAuth, async (req, res, next) => {
