@@ -15,6 +15,8 @@ export function redisOptions(): RedisOptions {
     tls: url.protocol === 'rediss:' ? {} : undefined,
     // 0 = resolve both IPv4 and IPv6 (Railway's private network is IPv6 only)
     family: 0,
+    // hosted redis drops idle sockets; keep-alive avoids the ETIMEDOUT/reconnect churn
+    keepAlive: 30_000,
     maxRetriesPerRequest: null,
   };
 }
