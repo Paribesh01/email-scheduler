@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
-    { "source": "/api/:path*", "destination": "https://email-scheduler-api.onrender.com/api/:path*" },
-    { "source": "/admin/:path*", "destination": "https://email-scheduler-api.onrender.com/admin/:path*" },
+    { "source": "/api/:path*", "destination": "https://email-scheduler-4i96.onrender.com/api/:path*" },
+    { "source": "/admin/:path*", "destination": "https://email-scheduler-4i96.onrender.com/admin/:path*" },
     { "source": "/((?!assets/).*)", "destination": "/index.html" }
   ]
 }
