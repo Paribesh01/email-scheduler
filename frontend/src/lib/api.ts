@@ -55,6 +55,7 @@ export const api = {
     return request<Paginated<EmailItem>>(`/api/emails?${qs}`)
   },
   getEmail: (id: string) => request<{ email: EmailDetail }>(`/api/emails/${id}`),
+  attachmentUrl: (emailId: string, attachmentId: string) => `${API_URL}/api/emails/${emailId}/attachments/${attachmentId}`,
   stats: () => request<EmailStats>('/api/emails/stats'),
   schedule: (data: ScheduleRequest) =>
     request<ScheduleResponse>('/api/emails/schedule', { method: 'POST', body: JSON.stringify(data) }),

@@ -284,6 +284,9 @@ curl -X POST http://localhost:4000/api/emails/schedule \
 - [x] Loading skeletons, empty states, error state with retry, toasts
 - [x] Search (Elasticsearch), pagination, auto-refresh every 5s
 - [x] Email detail page with an Ethereal preview link
+- [x] Attachments (images, PDF, Office docs, up to 5 files) with thumbnails in compose and detail views
+- [x] Rich text body (bold/italic/lists/quote…), sent as HTML with a plain-text fallback
+- [x] Email + password login next to Google, as in the Figma
 - [x] Connect Slack card + link to the queue dashboard
 - [x] Reusable components (Button, Input, Modal, StatusBadge, EmptyState, Avatar…), typed API layer
 
@@ -299,3 +302,4 @@ curl -X POST http://localhost:4000/api/emails/schedule \
 - **Slack** uses incoming webhooks (one channel per user, picked during OAuth). Tokens are stored in plain text in the DB. In production they'd be encrypted at rest.
 - **Elasticsearch** is optional at runtime. If it's down, search uses Postgres and indexing is skipped (no backfill job yet).
 - The Slack alert fires once per limit per hour window, deliberately, so a 1000-email batch doesn't spam the channel.
+- **Attachments** are stored once per campaign in Postgres (`bytea`). That's not ideal for large files, but it means any worker instance can send them later, even after a restart, without shared disk or S3. Workers cache them in memory for 10 minutes so a big batch doesn't re-read them from the DB for every email. The UI caps uploads at 3 MB because requests go through Vercel's proxy (~4.5 MB body limit); the API itself accepts up to 10 MB.

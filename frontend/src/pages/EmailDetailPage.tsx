@@ -10,6 +10,7 @@ import { EmptyState } from '../components/ui/EmptyState'
 import { IconButton } from '../components/ui/IconButton'
 import { Spinner } from '../components/ui/Spinner'
 import { StatusBadge } from '../components/ui/StatusBadge'
+import { AttachmentTile } from '../components/ui/AttachmentTile'
 
 export function EmailDetailPage() {
   const { id = '' } = useParams()
@@ -75,6 +76,15 @@ export function EmailDetailPage() {
               />
             ) : (
               <div className="mt-6 text-sm leading-relaxed whitespace-pre-wrap text-gray-800">{email.body}</div>
+            )}
+
+            {email.attachments.length > 0 && (
+              <div className="mt-6 flex flex-wrap gap-4">
+                {email.attachments.map((a) => {
+                  const url = api.attachmentUrl(email.id, a.id)
+                  return <AttachmentTile key={a.id} {...a} src={url} href={url} />
+                })}
+              </div>
             )}
 
             <dl className="mt-10 grid grid-cols-2 gap-4 rounded-xl bg-gray-50 p-4 text-xs sm:grid-cols-4">

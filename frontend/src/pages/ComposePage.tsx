@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, ChevronDown, Clock, Paperclip } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
@@ -13,6 +13,20 @@ import { Input } from '../components/ui/Input'
 import { RecipientsField, type RecipientsFieldHandle } from '../components/compose/RecipientsField'
 import { SendLaterPopover } from '../components/compose/SendLaterPopover'
 import { RichTextEditor } from '../components/compose/RichTextEditor'
+import { AttachmentTile } from '../components/ui/AttachmentTile'
+import {
+  ATTACHMENT_ACCEPT,
+  MAX_ATTACHMENTS,
+  MAX_ATTACHMENT_TOTAL_BYTES,
+  fileToBase64,
+  formatBytes,
+} from '../lib/files'
+
+interface PendingFile {
+  id: string
+  file: File
+  previewUrl: string
+}
 
 interface FormState {
   senderId: string
@@ -53,6 +67,40 @@ export function ComposePage() {
   const { refreshStats } = useDashboard()
   const { data: senderData } = useQuery('senders', api.senders)
   const recipientsRef = useRef<RecipientsFieldHandle>(null)
+  const attachInputRef = useRef<HTMLInputElement>(null)
+  const [files, setFiles] = useState<PendingFile[]>([])
+
+  // object urls for previews have to be released
+  const filesRef = useRef(files)
+  filesRef.current = files
+  useEffect(() => () => filesRef.current.forEach((f) => URL.revokeObjectURL(f.previewUrl)), [])
+
+  const addFiles = (list: FileList | null) => {
+    if (!list?.length) return
+    const next = [...files]
+    for (const file of Array.from(list)) {
+      if (next.length >= MAX_ATTACHMENTS) {
+        toast.error(`You can attach up to ${MAX_ATTACHMENTS} files`)
+        break
+      }
+      const total = next.reduce((n, f) => n + f.file.size, 0) + file.size
+      if (total > MAX_ATTACHMENT_TOTAL_BYTES) {
+        toast.error(`Attachments can add up to ${formatBytes(MAX_ATTACHMENT_TOTAL_BYTES)} at most`)
+        break
+      }
+      next.push({ id: `${file.name}-${file.size}-${file.lastModified}`, file, previewUrl: URL.createObjectURL(file) })
+    }
+    setFiles(next)
+    if (attachInputRef.current) attachInputRef.current.value = ''
+  }
+
+  const removeFile = (id: string) => {
+    setFiles((list) => {
+      const gone = list.find((f) => f.id === id)
+      if (gone) URL.revokeObjectURL(gone.previewUrl)
+      return list.filter((f) => f.id !== id)
+    })
+  }
 
   const [form, setForm] = useState<FormState>(initialState)
   const [errors, setErrors] = useState<Errors>({})
@@ -75,6 +123,13 @@ export function ComposePage() {
 
     setSubmitting(true)
     try {
+      const attachments = await Promise.all(
+        files.map(async ({ file }) => ({
+          filename: file.name,
+          contentType: file.type || 'application/octet-stream',
+          data: await fileToBase64(file),
+        })),
+      )
       const res = await api.schedule({
         subject: form.subject.trim(),
         body: form.body,
@@ -83,6 +138,7 @@ export function ComposePage() {
         delayMs: Math.round(Number(form.delaySeconds || 0) * 1000),
         hourlyLimit: Number(form.hourlyLimit),
         senderId: form.senderId || undefined,
+        attachments,
       })
       toast.success(`${res.scheduled} email${res.scheduled === 1 ? '' : 's'} scheduled`)
       void refreshStats()
@@ -109,9 +165,17 @@ export function ComposePage() {
         </IconButton>
         <h1 className="flex-1 text-lg font-semibold">Compose New Email</h1>
 
-        <IconButton label="Upload list" onClick={() => recipientsRef.current?.openFilePicker()}>
+        <IconButton label="Attach files" onClick={() => attachInputRef.current?.click()}>
           <Paperclip className="h-4 w-4" />
         </IconButton>
+        <input
+          ref={attachInputRef}
+          type="file"
+          multiple
+          accept={ATTACHMENT_ACCEPT}
+          className="hidden"
+          onChange={(e) => addFiles(e.target.files)}
+        />
         <div className="relative flex items-center gap-2">
           <IconButton label="Schedule" onClick={() => setShowLater((s) => !s)}>
             <Clock className="h-4 w-4" />
@@ -199,6 +263,21 @@ export function ComposePage() {
 
           <RichTextEditor value={form.body} onChange={(v) => set('body', v)} error={Boolean(errors.body)} />
           {errors.body && <p className="mt-1 text-xs text-red-500">{errors.body}</p>}
+
+          {files.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-4">
+              {files.map((f) => (
+                <AttachmentTile
+                  key={f.id}
+                  filename={f.file.name}
+                  contentType={f.file.type}
+                  size={f.file.size}
+                  src={f.previewUrl}
+                  onRemove={() => removeFile(f.id)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

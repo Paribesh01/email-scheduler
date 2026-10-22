@@ -28,10 +28,25 @@ export interface EmailItem {
   sender: { email: string; name: string }
 }
 
+export interface AttachmentMeta {
+  id: string
+  filename: string
+  contentType: string
+  size: number
+}
+
 export interface EmailDetail extends EmailItem {
   attempts: number
   messageId: string | null
   createdAt: string
+  attachments: AttachmentMeta[]
+}
+
+export interface AttachmentUpload {
+  filename: string
+  contentType: string
+  /** base64, no data: prefix */
+  data: string
 }
 
 export interface Paginated<T> {
@@ -62,6 +77,7 @@ export interface ScheduleRequest {
   delayMs: number
   hourlyLimit: number
   senderId?: string
+  attachments?: AttachmentUpload[]
 }
 
 export interface ScheduleResponse {
