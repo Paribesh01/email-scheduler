@@ -6,6 +6,7 @@ interface AuthState {
   user: User | null
   loading: boolean
   login: () => void
+  loginWithEmail: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -30,12 +31,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.href = api.googleLoginUrl()
   }, [])
 
+  const loginWithEmail = useCallback(async (email: string, password: string) => {
+    const res = await api.emailLogin(email, password)
+    setUser(res.user)
+  }, [])
+
   const logout = useCallback(async () => {
     await api.logout().catch(() => undefined)
     setUser(null)
   }, [])
 
-  const value = useMemo(() => ({ user, loading, login, logout }), [user, loading, login, logout])
+  const value = useMemo(
+    () => ({ user, loading, login, loginWithEmail, logout }),
+    [user, loading, login, loginWithEmail, logout],
+  )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 

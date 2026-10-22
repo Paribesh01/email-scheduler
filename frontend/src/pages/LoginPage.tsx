@@ -1,6 +1,10 @@
-import { Navigate, useSearchParams } from 'react-router-dom'
+import { useState, type FormEvent } from 'react'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { ApiError } from '../lib/api'
 import { FullPageLoader } from '../components/layout/FullPageLoader'
+import { Button } from '../components/ui/Button'
+import { Input } from '../components/ui/Input'
 
 const ERRORS: Record<string, string> = {
   access_denied: 'Google sign-in was cancelled.',
@@ -21,37 +25,87 @@ function GoogleLogo() {
 }
 
 export function LoginPage() {
-  const { user, loading, login } = useAuth()
+  const { user, loading, login, loginWithEmail } = useAuth()
+  const navigate = useNavigate()
   const [params] = useSearchParams()
-  const error = params.get('error')
+  const oauthError = params.get('error')
+
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
 
   if (loading) return <FullPageLoader />
   if (user) return <Navigate to="/dashboard" replace />
 
-  return (
-    <div className="flex min-h-full items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-100">
-        <div className="mb-8 text-center">
-          <div className="mb-6 text-3xl font-extrabold tracking-tight">ONB</div>
-          <h1 className="text-2xl font-semibold">Login</h1>
-          <p className="mt-2 text-sm text-gray-500">Schedule and track your outreach emails.</p>
-        </div>
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    setFormError(null)
+    if (!email.trim() || !password) {
+      setFormError('Enter your email and password')
+      return
+    }
+    setSubmitting(true)
+    try {
+      await loginWithEmail(email.trim(), password)
+      navigate('/dashboard', { replace: true })
+    } catch (err) {
+      const details = err instanceof ApiError ? err.details : undefined
+      const fieldMsg = details && Object.values(details).find((v) => v?.length)?.[0]
+      setFormError(fieldMsg ?? (err as Error).message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
-        {error && (
-          <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{ERRORS[error] ?? 'Sign-in failed.'}</p>
-        )}
+  const error = formError ?? (oauthError ? (ERRORS[oauthError] ?? 'Sign-in failed.') : null)
+
+  return (
+    <div className="flex min-h-full items-center justify-center bg-white px-4 py-10">
+      <div className="w-full max-w-md">
+        <h1 className="mb-8 text-center text-3xl font-semibold">Login</h1>
 
         <button
+          type="button"
           onClick={login}
-          className="flex h-12 w-full items-center justify-center gap-3 rounded-lg bg-brand-50 text-sm font-medium text-gray-800 ring-1 ring-brand-100 transition-colors hover:bg-brand-100"
+          className="flex h-12 w-full items-center justify-center gap-3 rounded-lg bg-brand-50 text-sm font-medium text-gray-800 transition-colors hover:bg-brand-100"
         >
           <GoogleLogo />
           Login with Google
         </button>
 
-        <p className="mt-6 text-center text-xs text-gray-400">
-          By continuing you agree to let us use your Google name, email and avatar.
-        </p>
+        <div className="my-6 flex items-center gap-3 text-xs text-gray-400">
+          <span className="h-px flex-1 bg-gray-200" />
+          or sign up through email
+          <span className="h-px flex-1 bg-gray-200" />
+        </div>
+
+        <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
+          <Input
+            type="email"
+            autoComplete="email"
+            placeholder="Email ID"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="h-12 w-full bg-gray-50"
+          />
+          <Input
+            type="password"
+            autoComplete="current-password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="h-12 w-full bg-gray-50"
+          />
+
+          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+
+          <Button type="submit" size="lg" loading={submitting} className="w-full">
+            Login
+          </Button>
+        </form>
+
+        <p className="mt-4 text-center text-xs text-gray-400">New here? Entering a new email creates your account.</p>
       </div>
     </div>
   )

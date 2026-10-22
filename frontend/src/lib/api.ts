@@ -42,6 +42,8 @@ export const api = {
   queueDashboardUrl: () => `${API_URL}/admin/queues`,
 
   me: () => request<{ user: User }>('/api/auth/me'),
+  emailLogin: (email: string, password: string) =>
+    request<{ user: User }>('/api/auth/email', { method: 'POST', body: JSON.stringify({ email, password }) }),
   logout: () => request<{ ok: boolean }>('/api/auth/logout', { method: 'POST' }),
 
   listEmails: (params: { type: EmailTab; q?: string; page?: number; limit?: number }) => {
