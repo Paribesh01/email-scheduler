@@ -214,6 +214,8 @@ Set `FRONTEND_URL` and `BACKEND_URL` on Render to the **Vercel** URL, and regist
 
 Render's free instances sleep after 15 minutes without traffic, which would pause the worker. An external uptime monitor (UptimeRobot) hits `/health` every 5 minutes to keep it awake. That's just a health check: scheduling is still entirely BullMQ delayed jobs. And even if the instance does sleep, nothing is lost. Jobs stay in Redis and overdue ones go out as soon as it wakes.
 
+> **SMTP on Render's free tier:** Render blocks outbound traffic on SMTP ports (25, 465, 587) for free instances, and Ethereal only accepts mail on 587. On the free deployment the UI, scheduling, rate limiting, search and Slack all work, but the actual SMTP send times out (`Connection timeout`) and the email ends up in the Failed state after retries. A paid Render instance (or any VM that allows port 587, e.g. a GCP e2-micro) fixes it with no code changes. **The demo video was recorded with the backend running locally** (against the same Neon / Redis Cloud / Elastic Cloud services), where sending works.
+
 The backend can also serve the built frontend itself (`FRONTEND_DIST=../frontend/dist`) for single-service deploys.
 
 ---
@@ -302,4 +304,5 @@ curl -X POST http://localhost:4000/api/emails/schedule \
 - **Slack** uses incoming webhooks (one channel per user, picked during OAuth). Tokens are stored in plain text in the DB. In production they'd be encrypted at rest.
 - **Elasticsearch** is optional at runtime. If it's down, search uses Postgres and indexing is skipped (no backfill job yet).
 - The Slack alert fires once per limit per hour window, deliberately, so a 1000-email batch doesn't spam the channel.
+- **Demo runs locally.** The hosted backend is on Render's free tier, which blocks outbound SMTP, so emails can't actually reach Ethereal from there (see Deployment). Everything in the video was run locally against the same cloud Postgres, Redis and Elasticsearch.
 - **Attachments** are stored once per campaign in Postgres (`bytea`). That's not ideal for large files, but it means any worker instance can send them later, even after a restart, without shared disk or S3. Workers cache them in memory for 10 minutes so a big batch doesn't re-read them from the DB for every email. The UI caps uploads at 3 MB because requests go through Vercel's proxy (~4.5 MB body limit); the API itself accepts up to 10 MB.
